@@ -31,14 +31,14 @@ var myDependencyKey = struct{}{}
 
 func main() {
     // create the DI container
-    var di = godi.New()
+    var DI = godi.New()
     // add a resolver
-	di.Bind(myDependencyKey, func(args ...interface{}) (interface{}, error) {
+	DI.Bind(myDependencyKey, func(args ...interface{}) (interface{}, error) {
 		return &SomeWriter{}, nil
     })
     // get an instance
     // will panic if dependency does not exist or resolver returns an error
-	_ = di.MustMake(myDependencyKey).(io.Writer)
+	_ = DI.MustMake(myDependencyKey).(io.Writer)
 }
 ```
 
@@ -49,7 +49,7 @@ var DI = godi.New()
 ```
 
 ## *Container.Bind
-Bind method adds a dependency maker to the container. The args passed to the Maker function are the ares passed to the Make or MustMake method of the container.
+Bind method adds a dependency maker to the container. The args passed to the Maker function are the args passed to the `Make` or `MustMake` method of the container.
 ```go
 DI.Bind(someKey, func(args ...interface{}) (interface{}, error) {
 		return &SomeDependency{args[0].(string)}, nil
@@ -60,7 +60,7 @@ var r = DI.MustMake(someKey, "foo").(*SomeDependency)
 ## *Container.BindSingleton
 BindSingleton method adds a dependency maker to the container. 
 The maker function is called only once, further calls will return the same results. 
-The args passed to the Maker function are the args passed to the Make or MustMake method of the container.
+The args passed to the Maker function are the args passed to the `Make` or `MustMake` method of the container.
 ```go
 DI.BindSingleton(someKey, func(args ...interface{}) (interface{}, error) {
 		return &SomeDependency{args[0].(string)}, nil

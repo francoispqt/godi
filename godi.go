@@ -32,7 +32,7 @@ func New() *Container {
 }
 
 // Make looks for the Maker function for the key k in the store and calls it with the given args
-// if no Maker exist with the key k, it returns an ErrDependencyNotFound error
+// it returns an ErrDependencyNotFound error if no Maker exist with the key k, else if the Maker returns a non nil error it will bubble up.
 func (di *Container) Make(k interface{}, args ...interface{}) (interface{}, error) {
 	if v, ok := di.store.Load(k); ok {
 		return v.(Maker)(args...)
@@ -41,7 +41,7 @@ func (di *Container) Make(k interface{}, args ...interface{}) (interface{}, erro
 }
 
 // MustMake looks for the Maker function for the key k in the store and calls it with the given args
-// If an error happens, it panics
+// It panics if an error happens.
 func (di *Container) MustMake(k interface{}, args ...interface{}) interface{} {
 	if v, ok := di.store.Load(k); ok {
 		var r, err = v.(Maker)(args...)

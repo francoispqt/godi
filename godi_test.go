@@ -22,12 +22,22 @@ func TestGoDIBindSingleton(t *testing.T) {
 	var r, err = di.Make("A", 0)
 	assert.Nil(t, err)
 	assert.Equal(t, r.(*A).i, 0)
+
+	di.BindSingleton("B", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+	var b interface{}
+	b, err = di.Make("B", 1)
+	assert.Nil(t, err)
+	assert.Equal(t, b.(*A).i, 1)
+
 	r.(*A).i = 1
 	var r2 interface{}
 	r2, err = di.Make("A", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, r.(*A), r2.(*A), "both injected instances should be the same")
 	assert.Equal(t, 1, r.(*A).i, "a.i should be 1")
+
 }
 
 func TestGoDIBindMust(t *testing.T) {
@@ -78,6 +88,15 @@ func TestGoDIBind(t *testing.T) {
 	}))
 	var r, err = di.Make("A", 0)
 	assert.Nil(t, err)
+
+	di.Bind("B", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+	var b interface{}
+	b, err = di.Make("B", 1)
+	assert.Nil(t, err)
+	assert.Equal(t, b.(*A).i, 1)
+
 	var r2 interface{}
 	r2, err = di.Make("A", 1)
 	assert.Nil(t, err)

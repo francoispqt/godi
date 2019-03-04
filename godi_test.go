@@ -2,6 +2,7 @@ package godi
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -92,15 +93,25 @@ func TestParallelSingleton(t *testing.T) {
 	di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
 		return &A{i: args[0].(int)}, nil
 	}))
-	var results = make(chan *A, 100)
+	var results = make(chan *A, 1000)
 	for i := 0; i < 100; i++ {
-		go func(i int) {
-			var r, err = di.Make("A", i)
-			assert.Nil(t, err)
-			results <- r.(*A)
-		}(i)
+		i := i
+		t.Run(
+			fmt.Sprintf("%d", i),
+			func(t *testing.T) {
+				t.Parallel()
+				for j := 0; j < 10; j++ {
+					go func(j int) {
+						var r, err = di.Make("A", j)
+						assert.Nil(t, err)
+						results <- r.(*A)
+					}(j)
+				}
+			},
+		)
 	}
-	var resultsSlice = make([]*A, 100)
+
+	var resultsSlice = make([]*A, 10000)
 	var i = 0
 	for r := range results {
 		resultsSlice[i] = r

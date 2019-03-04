@@ -99,3 +99,7 @@ DI.Bind(someKey, func(args ...interface{}) (interface{}, error) {
 })
 var r = DI.MustMake(someKey, "foo").(*SomeDependency)
 ```
+
+## Performance
+Godi uses an `atomic.Value` to store a `map[interface{}]Maker` increasing performance significantly by providing a lock free mechanism even for singletons. 
+Below are benchmarks when getting values:

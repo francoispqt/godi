@@ -47,8 +47,12 @@ func New() *Container {
 // Make looks for the Maker function for the key k in the store and calls it with the given args
 // it returns an ErrDependencyNotFound error if no Maker exist with the key k, else if the Maker returns a non nil error it will bubble up.
 func (di *Container) Make(k interface{}, args ...interface{}) (interface{}, error) {
-	var v = di.store.Load().(map[interface{}]Maker)
+	var valueStore = di.valueStore.Load().(map[interface{}]interface{})
+	if v, ok := valueStore[k]; ok {
+		return v, nil
+	}
 
+	var v = di.store.Load().(map[interface{}]Maker)
 	if v, ok := v[k]; ok {
 		return v(args...)
 	}
@@ -95,16 +99,18 @@ func (di *Container) BindSingleton(k interface{}, f func(args ...interface{}) (i
 
 		if r == nil && err == nil {
 			r, err = f(args...)
-			// now that it's been ran once, we replace the Maker to return the value
-			// to avoid locking anything a get significantly better perfs
-			var valueStore = di.valueStore.Load().(map[interface{}]interface{})
-			var nValueStore = make(map[interface{}]interface{}, len(valueStore))
-			for ok, ov := range valueStore {
-				nValueStore[ok] = ov
-			}
+			if err == nil {
+				// now that it's been ran once, we replace the Maker to return the value
+				// to avoid locking anything a get significantly better perfs
+				var valueStore = di.valueStore.Load().(map[interface{}]interface{})
+				var nValueStore = make(map[interface{}]interface{}, len(valueStore))
+				for ok, ov := range valueStore {
+					nValueStore[ok] = ov
+				}
 
-			nValueStore[k] = r
-			di.valueStore.Store(nValueStore)
+				nValueStore[k] = r
+				di.valueStore.Store(nValueStore)
+			}
 		}
 		return r, err
 	})

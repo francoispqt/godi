@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type A struct {
@@ -88,39 +89,23 @@ func TestErrNotExist(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestParallelSingleton(t *testing.T) {
+func TestSingletonParallel(t *testing.T) {
 	var di = New()
 	di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
 		return &A{i: args[0].(int)}, nil
 	}))
-	var results = make(chan *A, 1000)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		i := i
 		t.Run(
 			fmt.Sprintf("%d", i),
 			func(t *testing.T) {
 				t.Parallel()
-				for j := 0; j < 10; j++ {
-					go func(j int) {
-						var r, err = di.Make("A", j)
-						assert.Nil(t, err)
-						results <- r.(*A)
-					}(j)
+				for j := 0; j < 100; j++ {
+					var r, err = di.Make("A", j)
+					assert.Nil(t, err)
+					require.Equal(t, 0, r.(*A).i)
 				}
 			},
 		)
-	}
-
-	var resultsSlice = make([]*A, 10000)
-	var i = 0
-	for r := range results {
-		resultsSlice[i] = r
-		if i > 0 {
-			assert.Equal(t, r, resultsSlice[i-1])
-		}
-		i++
-		if i == 100 {
-			break
-		}
 	}
 }

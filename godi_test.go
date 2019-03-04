@@ -3,6 +3,7 @@ package godi
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -91,19 +92,40 @@ func TestErrNotExist(t *testing.T) {
 
 func TestSingletonParallel(t *testing.T) {
 	var di = New()
+	var mut = &sync.Mutex{}
+	var ran int
+	var changed bool
 	di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+		mut.Lock()
+		defer mut.Unlock()
+		ran++
 		return &A{i: args[0].(int)}, nil
 	}))
+
 	for i := 0; i < 1000; i++ {
 		i := i
 		t.Run(
 			fmt.Sprintf("%d", i),
 			func(t *testing.T) {
 				t.Parallel()
-				for j := 0; j < 100; j++ {
-					var r, err = di.Make("A", j)
-					assert.Nil(t, err)
-					require.Equal(t, 0, r.(*A).i)
+				mut.Lock()
+				defer mut.Unlock()
+				if i > 500 && !changed {
+					di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+						mut.Lock()
+						defer mut.Unlock()
+						ran++
+						return &A{i: args[0].(int)}, nil
+					}))
+					di.Make("A", i)
+					changed = true
+					require.True(t, ran > 1)
+				} else if i > 500 && changed {
+					di.Make("A", i)
+					require.True(t, ran > 1)
+				} else {
+					di.Make("A", i)
+					require.Equal(t, 1, ran)
 				}
 			},
 		)

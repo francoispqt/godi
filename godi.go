@@ -81,24 +81,35 @@ func (di *Container) BindSingleton(k interface{}, f func(args ...interface{}) (i
 	defer di.mut.Unlock()
 
 	var v = di.store.Load().(map[interface{}]Maker)
+	var nV = make(map[interface{}]Maker, len(v))
+	for ok, ov := range v {
+		nV[ok] = ov
+	}
+
 	var r interface{}
 	var err error
 	var mut = sync.Mutex{}
-	v[k] = Maker(func(args ...interface{}) (interface{}, error) {
+	nV[k] = Maker(func(args ...interface{}) (interface{}, error) {
 		mut.Lock()
+		defer mut.Unlock()
+
 		if r == nil && err == nil {
 			r, err = f(args...)
 			// now that it's been ran once, we replace the Maker to return the value
 			// to avoid locking anything a get significantly better perfs
 			var valueStore = di.valueStore.Load().(map[interface{}]interface{})
-			valueStore[k] = r
-			di.valueStore.Store(valueStore)
+			var nValueStore = make(map[interface{}]interface{}, len(valueStore))
+			for ok, ov := range valueStore {
+				nValueStore[ok] = ov
+			}
+
+			nValueStore[k] = r
+			di.valueStore.Store(nValueStore)
 		}
-		mut.Unlock()
 		return r, err
 	})
 
-	di.store.Store(v)
+	di.store.Store(nV)
 	return di
 }
 
@@ -108,7 +119,11 @@ func (di *Container) Bind(k interface{}, f func(args ...interface{}) (interface{
 	defer di.mut.Unlock()
 
 	var v = di.store.Load().(map[interface{}]Maker)
-	v[k] = Maker(f)
-	di.store.Store(v)
+	var nV = make(map[interface{}]Maker, len(v))
+	for ok, ov := range v {
+		nV[ok] = ov
+	}
+	nV[k] = Maker(f)
+	di.store.Store(nV)
 	return di
 }

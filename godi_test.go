@@ -2,9 +2,12 @@ package godi
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type A struct {
@@ -19,12 +22,22 @@ func TestGoDIBindSingleton(t *testing.T) {
 	var r, err = di.Make("A", 0)
 	assert.Nil(t, err)
 	assert.Equal(t, r.(*A).i, 0)
+
+	di.BindSingleton("B", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+	var b interface{}
+	b, err = di.Make("B", 1)
+	assert.Nil(t, err)
+	assert.Equal(t, b.(*A).i, 1)
+
 	r.(*A).i = 1
 	var r2 interface{}
 	r2, err = di.Make("A", 1)
 	assert.Nil(t, err)
 	assert.Equal(t, r.(*A), r2.(*A), "both injected instances should be the same")
 	assert.Equal(t, 1, r.(*A).i, "a.i should be 1")
+
 }
 
 func TestGoDIBindMust(t *testing.T) {
@@ -75,6 +88,15 @@ func TestGoDIBind(t *testing.T) {
 	}))
 	var r, err = di.Make("A", 0)
 	assert.Nil(t, err)
+
+	di.Bind("B", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+	var b interface{}
+	b, err = di.Make("B", 1)
+	assert.Nil(t, err)
+	assert.Equal(t, b.(*A).i, 1)
+
 	var r2 interface{}
 	r2, err = di.Make("A", 1)
 	assert.Nil(t, err)
@@ -87,29 +109,43 @@ func TestErrNotExist(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestParallelSingleton(t *testing.T) {
+func TestSingletonParallel(t *testing.T) {
 	var di = New()
+	var mut = &sync.Mutex{}
+	var ran int
+	var changed bool
 	di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+		mut.Lock()
+		defer mut.Unlock()
+		ran++
 		return &A{i: args[0].(int)}, nil
 	}))
-	var results = make(chan *A, 100)
-	for i := 0; i < 100; i++ {
-		go func(i int) {
-			var r, err = di.Make("A", i)
-			assert.Nil(t, err)
-			results <- r.(*A)
-		}(i)
-	}
-	var resultsSlice = make([]*A, 100)
-	var i = 0
-	for r := range results {
-		resultsSlice[i] = r
-		if i > 0 {
-			assert.Equal(t, r, resultsSlice[i-1])
-		}
-		i++
-		if i == 100 {
-			break
-		}
+
+	for i := 0; i < 1000; i++ {
+		i := i
+		t.Run(
+			fmt.Sprintf("%d", i),
+			func(t *testing.T) {
+				t.Parallel()
+				di.Make("A", 1)
+
+				mut.Lock()
+				defer mut.Unlock()
+
+				if !changed {
+					require.Equal(t, 1, ran)
+				} else if i == 500 {
+					changed = true
+					di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+						mut.Lock()
+						defer mut.Unlock()
+						ran++
+						return &A{i: args[0].(int)}, nil
+					}))
+				} else if changed {
+					require.Equal(t, 2, ran)
+				}
+			},
+		)
 	}
 }

@@ -108,24 +108,23 @@ func TestSingletonParallel(t *testing.T) {
 			fmt.Sprintf("%d", i),
 			func(t *testing.T) {
 				t.Parallel()
+				di.Make("A", 1)
+
 				mut.Lock()
 				defer mut.Unlock()
-				if i > 500 && !changed {
+
+				if !changed {
+					require.Equal(t, 1, ran)
+				} else if i == 500 {
+					changed = true
 					di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
 						mut.Lock()
 						defer mut.Unlock()
 						ran++
 						return &A{i: args[0].(int)}, nil
 					}))
-					di.Make("A", i)
-					changed = true
-					require.True(t, ran > 1)
-				} else if i > 500 && changed {
-					di.Make("A", i)
-					require.True(t, ran > 1)
-				} else {
-					di.Make("A", i)
-					require.Equal(t, 1, ran)
+				} else if changed {
+					require.Equal(t, 2, ran)
 				}
 			},
 		)

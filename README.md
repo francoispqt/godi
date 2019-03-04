@@ -102,4 +102,13 @@ var r = DI.MustMake(someKey, "foo").(*SomeDependency)
 
 ## Performance
 Godi uses an `atomic.Value` to store a `map[interface{}]Maker` increasing performance significantly by providing a lock free mechanism even for singletons. 
-Below are benchmarks when getting values:
+Below are benchmarks when getting values, benchmarks are ran on a MacBook Pro 2,2 GHz Intel Core i7, 16GB 1600 MHz RAM:
+```
+goos: darwin
+goarch: amd64
+pkg: github.com/francoispqt/godi
+BenchmarkMakeSingleton-8   	50000000	        36.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMake-8            	30000000	        45.1 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/francoispqt/godi	3.327s
+```

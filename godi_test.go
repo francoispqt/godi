@@ -47,8 +47,25 @@ func TestGoDIBindMust(t *testing.T) {
 	}))
 	var r = di.MustMake("A", 1).(*A)
 	assert.Equal(t, 1, r.i)
-	var r2 = di.MustMake("A").(*A)
-	assert.Equal(t, r2, r)
+
+	di.BindSingleton("B", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+	var b = di.MustMake("B", 2).(*A)
+	assert.Equal(t, 2, b.i)
+
+	var r2 = di.MustMake("A", 1).(*A)
+	assert.Equal(t, 1, r2.i)
+
+	var b2 = di.MustMake("B").(*A)
+	assert.Equal(t, 2, b2.i)
+
+	di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+
+	var r3 = di.MustMake("A", 2).(*A)
+	assert.Equal(t, 2, r3.i)
 }
 
 func TestGoDIBindMustErr(t *testing.T) {
@@ -109,7 +126,48 @@ func TestErrNotExist(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestSingletonParallel(t *testing.T) {
+func TestMakeSingletonParallel(t *testing.T) {
+	var di = New()
+	var mut = &sync.Mutex{}
+	var ran int
+	var changed bool
+	di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+		mut.Lock()
+		defer mut.Unlock()
+		ran++
+		return &A{i: args[0].(int)}, nil
+	}))
+
+	for i := 0; i < 1000; i++ {
+		i := i
+		t.Run(
+			fmt.Sprintf("%d", i),
+			func(t *testing.T) {
+				t.Parallel()
+				di.Make("A", 1)
+
+				mut.Lock()
+				defer mut.Unlock()
+
+				if !changed {
+					require.Equal(t, 1, ran)
+				} else if i == 500 {
+					changed = true
+					di.BindSingleton("A", Maker(func(args ...interface{}) (interface{}, error) {
+						mut.Lock()
+						defer mut.Unlock()
+						ran++
+						return &A{i: args[0].(int)}, nil
+					}))
+				} else if changed {
+					require.Equal(t, 2, ran)
+				}
+			},
+		)
+	}
+}
+
+func TestMustMakeSingletonParallel(t *testing.T) {
 	var di = New()
 	var mut = &sync.Mutex{}
 	var ran int

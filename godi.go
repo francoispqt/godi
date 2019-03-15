@@ -112,6 +112,7 @@ func (di *Container) BindSingleton(k interface{}, f func(args ...interface{}) (i
 		if r == nil && err == nil {
 			r, err = f(args...)
 			if err == nil {
+				di.mut.Lock()
 				// now that it's been ran once, we replace the Maker to return the value
 				// to avoid locking anything a get significantly better perfs
 				var valueStore = di.valueStore.Load().(map[interface{}]interface{})
@@ -122,6 +123,7 @@ func (di *Container) BindSingleton(k interface{}, f func(args ...interface{}) (i
 
 				nValueStore[k] = r
 				di.valueStore.Store(nValueStore)
+				di.mut.Unlock()
 			}
 		}
 		return r, err

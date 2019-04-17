@@ -89,7 +89,7 @@ func TestGoDIBindMustErrNotExist(t *testing.T) {
 	var di = New()
 	defer func() {
 		if err := recover(); err != nil {
-			assert.Equal(t, ErrDependencyNotFound, err)
+			assert.True(t, IsErrDependencyNotFound(err.(error)))
 			return
 		}
 		assert.False(t, true, "Did not panic")
@@ -105,6 +105,14 @@ func TestGoDIBind(t *testing.T) {
 	}))
 	var r, err = di.Make("A", 0)
 	assert.Nil(t, err)
+
+	di.BindSingleton("AS", Maker(func(args ...interface{}) (interface{}, error) {
+		return &A{i: args[0].(int)}, nil
+	}))
+	var s interface{}
+	s, err = di.Make("AS", 1)
+	assert.Nil(t, err)
+	assert.True(t, s.(*A).i == 1)
 
 	di.Bind("B", Maker(func(args ...interface{}) (interface{}, error) {
 		return &A{i: args[0].(int)}, nil

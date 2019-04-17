@@ -1,13 +1,34 @@
 package godi
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
 )
 
-// ErrDependencyNotFound is the error returned if the Maker is not found
-var ErrDependencyNotFound = errors.New("Dependency does not exist")
+// ErrDependencyNotFoundMsg is the error message returned
+// if the Maker is not found
+var ErrDependencyNotFoundMsg = "Dependency '%v' does not exist"
+
+// ErrDependencyNotFound is a custom error type for errors
+// when dependency does not exist
+type ErrDependencyNotFound error
+
+// ErrDependencyNotFoundF returns an ErrDependencyNotFound error with the given
+// dependency
+func ErrDependencyNotFoundF(dep interface{}) ErrDependencyNotFound {
+	return ErrDependencyNotFound(
+		errors.Errorf(ErrDependencyNotFoundMsg, dep),
+	)
+}
+
+// IsErrDependencyNotFound returns whether the given error is a
+// DependencNotFound error
+func IsErrDependencyNotFound(err error) bool {
+	_, ok := err.(ErrDependencyNotFound)
+	return ok
+}
 
 // Injecter is the interface representing the dependency injecter
 type Injecter interface {
@@ -57,7 +78,7 @@ func (di *Container) Make(k interface{}, args ...interface{}) (interface{}, erro
 	if v, ok := v[k]; ok {
 		return v(args...)
 	}
-	return nil, ErrDependencyNotFound
+	return nil, ErrDependencyNotFoundF(k)
 }
 
 // MustMake looks for the Maker function for the key k in the store and calls it with the given args
@@ -76,7 +97,7 @@ func (di *Container) MustMake(k interface{}, args ...interface{}) interface{} {
 		}
 		return r
 	}
-	panic(ErrDependencyNotFound)
+	panic(ErrDependencyNotFoundF(k))
 }
 
 // BindSingleton adds a singleton Maker for the key k to the Container's store.
